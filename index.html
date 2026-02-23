@@ -1,1 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Matrix Solver — EverythingMatrix</title>
+<style>
+/* ─── Reset & Custom Properties ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --bg:        #08081a;
+  --bg2:       #0f0f2a;
+  --surface:   rgba(255,255,255,0.04);
+  --border:    rgba(255,255,255,0.08);
+  --border-hi: rgba(139,92,246,0.5);
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --primary:   #8b5cf6;
+  --primary-g: linear-gradient(135deg,#8b5cf6,#6d28d9);
+  --cyan:      #06b6d4;
+  --amber:     #f59e0b;
+  --green:     #10b981;
+  --red:       #ef4444;
+  --pink:      #ec4899;
+  --radius:    12px;
+  --radius-sm: 8px;
+  --shadow:    0 8px 32px rgba(0,0,0,0.4);
+  --glow:      0 0 20px rgba(139,92,246,0.3);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Animated Background Grid ──────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Orbs ───────────────────────────────────────────────────────────── */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift 12s ease-in-out infinite alternate;
+}
+.orb-1 { width:400px;height:400px;background:rgba(139,92,246,0.12);top:-100px;left:-100px;animation-delay:0s; }
+.orb-2 { width:300px;height:300px;background:rgba(6,182,212,0.1);bottom:-80px;right:-80px;animation-delay:-4s; }
+.orb-3 { width:250px;height:250px;background:rgba(236,72,153,0.08);top:50%;right:10%;animation-delay:-8s; }
+@keyframes drift { from{transform:translateY(0) scale(1)} to{transform:translateY(30px) scale(1.05)} }
+
+/* ─── Layout ─────────────────────────────────────────────────────────── */
+.wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px 64px; }
+
+/* ─── Header ─────────────────────────────────────────────────────────── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-icon {
+  width:42px; height:42px;
+  background: var(--primary-g);
+  border-radius: 10px;
+  display:grid; place-items:center;
+  font-size:20px;
+  box-shadow: var(--glow);
+  animation: pulse 3s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{box-shadow:0 0 20px rgba(139,92,246,0.3)} 50%{box-shadow:0 0 35px rgba(139,92,246,0.6)} }
+
+.logo h1 { font-size:22px; font-weight:700; letter-spacing:-0.5px; }
+.logo h1 span { color: var(--primary); }
+.logo p { font-size:12px; color:var(--muted); margin-top:2px; }
+
+.header-badge {
+  background: rgba(139,92,246,0.15);
+  border: 1px solid rgba(139,92,246,0.3);
+  color: var(--primary);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ─── Card ───────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  backdrop-filter: blur(12px);
+  transition: border-color .2s, box-shadow .2s;
+}
+.card:hover { border-color: rgba(139,92,246,0.2); }
+.card-title {
+  font-size:13px; font-weight:600; letter-spacing:.8px; text-transform:uppercase;
+  color:var(--muted); margin-bottom:16px; display:flex; align-items:center; gap:8px;
+}
+.card-title .dot { width:6px;height:6px;border-radius:50%; }
+
+/* ─── Size Controls ──────────────────────────────────────────────────── */
+.matrix-controls { display:flex; align-items:center; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.matrix-controls label { font-size:13px; color:var(--muted); font-weight:500; }
+.size-btn {
+  width:30px; height:30px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+  cursor:pointer; font-size:14px; font-weight:600;
+  transition:.15s; display:grid; place-items:center;
+}
+.size-btn:hover { background:rgba(139,92,246,0.2); border-color:var(--primary); }
+.size-display {
+  min-width:48px; text-align:center;
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:4px 8px; font-size:13px; font-weight:600;
+}
+.matrix-action-btns { display:flex; gap:6px; margin-left:auto; }
+.action-btn {
+  padding:5px 12px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); background:transparent;
+  color:var(--muted); font-size:12px; font-weight:500;
+  cursor:pointer; transition:.15s;
+}
+.action-btn:hover { background:rgba(255,255,255,0.06); color:var(--text); }
+.action-btn.fill { border-color:rgba(6,182,212,0.3); color:var(--cyan); }
+.action-btn.fill:hover { background:rgba(6,182,212,0.1); }
+.action-btn.clear-btn { border-color:rgba(239,68,68,0.3); color:var(--red); }
+.action-btn.clear-btn:hover { background:rgba(239,68,68,0.1); }
+
+/* ─── Matrix Grid ────────────────────────────────────────────────────── */
+.matrix-grid-wrap { overflow-x:auto; }
+.matrix-grid {
+  display:inline-grid;
+  gap:6px;
+  position:relative;
+}
+.matrix-grid::before, .matrix-grid::after {
+  content:'';
+  position:absolute;
+  top:0; bottom:0;
+  width:3px;
+  background:linear-gradient(to bottom, transparent, var(--primary), transparent);
+  border-radius:2px;
+  opacity:.5;
+}
+.matrix-grid::before { left:-10px; }
+.matrix-grid::after  { right:-10px; }
+
+.matrix-cell {
+  width:58px; height:50px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text);
+  font-size:14px; font-weight:500;
+  text-align:center;
+  transition:.15s;
+  outline:none;
+}
+.matrix-cell:focus {
+  border-color:var(--primary);
+  background:rgba(139,92,246,0.1);
+  box-shadow:0 0 0 3px rgba(139,92,246,0.15);
+}
+.matrix-cell:hover:not(:focus) { border-color:rgba(139,92,246,0.3); }
+
+/* ─── Main Grid ──────────────────────────────────────────────────────── */
+.main-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+  margin-bottom:24px;
+}
+@media(max-width:800px){ .main-grid{grid-template-columns:1fr;} }
+
+/* ─── Scalar Input ───────────────────────────────────────────────────── */
+.scalar-row { display:flex; align-items:center; gap:10px; margin:16px 0 0; }
+.scalar-row label { font-size:13px; color:var(--muted); }
+.scalar-input {
+  width:80px; height:36px; border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.05);
+  color:var(--text); font-size:14px; text-align:center;
+  outline:none; transition:.15s;
+}
+.scalar-input:focus { border-color:var(--primary); background:rgba(139,92,246,0.1); }
+
+/* Power input */
+.power-row { display:flex; align-items:center; gap:10px; margin:16px 0 0; }
+.power-row label { font-size:13px; color:var(--muted); }
+.power-input {
+  width:70px; height:36px; border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.05);
+  color:var(--text); font-size:14px; text-align:center;
+  outline:none; transition:.15s;
+}
+.power-input:focus { border-color:var(--amber); background:rgba(245,158,11,0.1); }
+
+/* ─── Operations Panel ───────────────────────────────────────────────── */
+.ops-panel { margin-bottom:24px; }
+.ops-categories { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+.cat-tab {
+  padding:6px 14px; border-radius:20px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted); font-size:12px; font-weight:600;
+  cursor:pointer; transition:.2s; letter-spacing:.3px;
+}
+.cat-tab.active, .cat-tab:hover { color:var(--text); }
+.cat-tab[data-cat="binary"].active  { background:rgba(139,92,246,.2); border-color:var(--primary); color:var(--primary); }
+.cat-tab[data-cat="unary"].active   { background:rgba(6,182,212,.2);  border-color:var(--cyan);    color:var(--cyan); }
+.cat-tab[data-cat="props"].active   { background:rgba(16,185,129,.2); border-color:var(--green);   color:var(--green); }
+.cat-tab[data-cat="decomp"].active  { background:rgba(245,158,11,.2); border-color:var(--amber);   color:var(--amber); }
+.cat-tab[data-cat="checks"].active  { background:rgba(236,72,153,.2); border-color:var(--pink);    color:var(--pink); }
+
+.ops-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap:8px;
+}
+.op-btn {
+  padding:12px 14px;
+  border-radius:var(--radius);
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--text);
+  cursor:pointer;
+  font-size:13px; font-weight:500;
+  text-align:left;
+  transition:.2s;
+  display:flex; flex-direction:column; gap:3px;
+  position:relative; overflow:hidden;
+}
+.op-btn::after {
+  content:'';
+  position:absolute; inset:0;
+  background:var(--op-color,var(--primary));
+  opacity:0;
+  transition:opacity .2s;
+}
+.op-btn:hover::after { opacity:.06; }
+.op-btn:hover { border-color:var(--op-color,var(--primary)); transform:translateY(-1px); box-shadow:var(--shadow); }
+.op-btn:active { transform:translateY(0); }
+
+.op-btn .op-name { font-weight:600; font-size:13px; }
+.op-btn .op-desc { font-size:11px; color:var(--muted); }
+.op-btn .op-tag {
+  position:absolute; top:8px; right:8px;
+  font-size:9px; font-weight:700; letter-spacing:.5px;
+  padding:2px 6px; border-radius:4px; opacity:.7;
+}
+
+/* category colors */
+.op-btn[data-cat="binary"] { --op-color: var(--primary); }
+.op-btn[data-cat="binary"] .op-tag { background:rgba(139,92,246,.2); color:var(--primary); }
+.op-btn[data-cat="unary"]  { --op-color: var(--cyan); }
+.op-btn[data-cat="unary"]  .op-tag { background:rgba(6,182,212,.2);  color:var(--cyan); }
+.op-btn[data-cat="props"]  { --op-color: var(--green); }
+.op-btn[data-cat="props"]  .op-tag { background:rgba(16,185,129,.2); color:var(--green); }
+.op-btn[data-cat="decomp"] { --op-color: var(--amber); }
+.op-btn[data-cat="decomp"] .op-tag { background:rgba(245,158,11,.2); color:var(--amber); }
+.op-btn[data-cat="checks"] { --op-color: var(--pink); }
+.op-btn[data-cat="checks"] .op-tag { background:rgba(236,72,153,.2); color:var(--pink); }
+
+/* ─── Result Panel ───────────────────────────────────────────────────── */
+.result-panel {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:28px;
+  backdrop-filter:blur(12px);
+  min-height:200px;
+  transition:border-color .3s;
+  position:relative;
+  overflow:hidden;
+}
+.result-panel.has-result { border-color:rgba(139,92,246,0.3); box-shadow:0 0 40px rgba(139,92,246,0.08); }
+.result-panel.error      { border-color:rgba(239,68,68,0.3); box-shadow:0 0 40px rgba(239,68,68,0.06); }
+
+.result-glow {
+  position:absolute; top:-60px; right:-60px;
+  width:200px; height:200px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(139,92,246,0.15), transparent 70%);
+  pointer-events:none;
+  transition:opacity .5s;
+  opacity:0;
+}
+.result-panel.has-result .result-glow { opacity:1; }
+
+.result-placeholder {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:140px; gap:12px; color:var(--muted);
+}
+.result-placeholder .ph-icon { font-size:40px; opacity:.3; }
+.result-placeholder p { font-size:14px; }
+
+.result-header {
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;
+  animation:fadeSlideIn .3s ease;
+}
+.result-op-label {
+  font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;
+}
+.result-op-label .badge {
+  padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600;
+}
+.copy-btn {
+  padding:6px 14px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); background:transparent;
+  color:var(--muted); font-size:12px; cursor:pointer; transition:.15s;
+}
+.copy-btn:hover { background:rgba(255,255,255,0.06); color:var(--text); }
+
+.result-body { animation:fadeSlideIn .35s ease; }
+
+/* Matrix display */
+.result-matrix {
+  display:inline-grid;
+  gap:8px;
+  position:relative;
+  margin:8px 16px;
+}
+.result-matrix::before, .result-matrix::after {
+  content:'';
+  position:absolute;
+  top:0; bottom:0; width:4px;
+  border-radius:2px;
+  background:linear-gradient(to bottom, transparent, var(--primary), transparent);
+}
+.result-matrix::before { left:-14px; }
+.result-matrix::after  { right:-14px; }
+
+.result-cell {
+  min-width:60px; height:46px;
+  background:rgba(139,92,246,0.08);
+  border:1px solid rgba(139,92,246,0.2);
+  border-radius:var(--radius-sm);
+  display:grid; place-items:center;
+  font-size:14px; font-weight:600; font-family:monospace;
+  animation:cellPop .25s ease backwards;
+}
+@keyframes cellPop {
+  from { transform:scale(0.8); opacity:0; }
+  to   { transform:scale(1);   opacity:1; }
+}
+
+/* Scalar result */
+.result-scalar {
+  font-size:32px; font-weight:800;
+  font-family:monospace;
+  color:var(--primary);
+  text-align:center; padding:24px;
+  animation:fadeSlideIn .3s ease;
+  letter-spacing:-1px;
+}
+
+/* Text/list result */
+.result-text {
+  font-size:14px; line-height:1.8;
+  font-family:monospace;
+  animation:fadeSlideIn .3s ease;
+}
+.result-text .key { color:var(--muted); font-size:12px; margin-top:12px; }
+.result-text .val { color:var(--text); font-weight:600; margin-left:8px; }
+
+/* Decomp result */
+.decomp-matrices { display:flex; flex-wrap:wrap; gap:32px; }
+.decomp-block h4 { font-size:12px; color:var(--muted); margin-bottom:10px; letter-spacing:.5px; }
+
+/* Steps */
+.steps-toggle {
+  margin-top:20px;
+  padding:6px 14px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); background:transparent;
+  color:var(--muted); font-size:12px; cursor:pointer; transition:.15s;
+}
+.steps-toggle:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+.steps-section {
+  margin-top:16px;
+  background:rgba(0,0,0,0.2);
+  border-radius:var(--radius-sm);
+  padding:16px;
+  display:none;
+}
+.steps-section.open { display:block; animation:fadeSlideIn .25s ease; }
+.step-line { font-size:12px; color:var(--muted); margin:6px 0; font-family:monospace; }
+.step-line span { color:var(--text); }
+
+/* Check result */
+.check-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+.check-item {
+  padding:6px 14px; border-radius:20px;
+  font-size:13px; font-weight:500; display:flex; align-items:center; gap:6px;
+}
+.check-item.pass { background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:var(--green); }
+.check-item.fail { background:rgba(100,116,139,0.1);  border:1px solid rgba(100,116,139,0.2);  color:var(--muted); }
+
+/* Error */
+.result-error {
+  display:flex; align-items:center; gap:12px;
+  color:var(--red); font-size:14px; font-weight:500;
+  animation:fadeSlideIn .25s ease;
+}
+.result-error .err-icon { font-size:24px; }
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.card { animation:fadeSlideIn .4s ease; }
+
+/* ─── Info Row ───────────────────────────────────────────────────────── */
+.info-row {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:12px; margin-bottom:24px;
+}
+.info-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px 18px;
+  display:flex; align-items:center; gap:12px;
+  font-size:13px;
+  animation:fadeSlideIn .4s ease;
+}
+.info-icon { font-size:22px; }
+.info-val { font-weight:700; font-size:15px; }
+.info-key { color:var(--muted); font-size:11px; }
+
+/* ─── Toast ──────────────────────────────────────────────────────────── */
+.toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:rgba(16,185,129,0.9);
+  color:#fff; padding:10px 20px;
+  border-radius:20px; font-size:13px; font-weight:600;
+  transition:transform .3s ease; pointer-events:none; z-index:100;
+}
+.toast.show { transform:translateX(-50%) translateY(0); }
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(139,92,246,0.3); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="wrapper">
+
+  <!-- ─ Header ──────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">Σ</div>
+      <div>
+        <h1>Everything<span>Matrix</span></h1>
+        <p>Interactive Matrix Operations Solver</p>
+      </div>
+    </div>
+    <div class="header-badge">20+ Operations</div>
+  </header>
+
+  <!-- ─ Live Info Row ────────────────────────────────────── -->
+  <div class="info-row" id="infoRow">
+    <div class="info-card"><span class="info-icon">🔢</span><div><div class="info-val" id="infoSizeA">—</div><div class="info-key">Matrix A size</div></div></div>
+    <div class="info-card"><span class="info-icon">🔣</span><div><div class="info-val" id="infoSizeB">—</div><div class="info-key">Matrix B size</div></div></div>
+    <div class="info-card"><span class="info-icon">🎯</span><div><div class="info-val" id="infoDetA">—</div><div class="info-key">det(A)</div></div></div>
+    <div class="info-card"><span class="info-icon">📐</span><div><div class="info-val" id="infoTraceA">—</div><div class="info-key">tr(A)</div></div></div>
+    <div class="info-card"><span class="info-icon">📏</span><div><div class="info-val" id="infoRankA">—</div><div class="info-key">rank(A)</div></div></div>
+  </div>
+
+  <!-- ─ Matrix Inputs ────────────────────────────────────── -->
+  <div class="main-grid">
+
+    <!-- Matrix A -->
+    <div class="card" style="animation-delay:.05s">
+      <div class="card-title"><span class="dot" style="background:var(--primary)"></span> Matrix A</div>
+      <div class="matrix-controls">
+        <label>Rows</label>
+        <button class="size-btn" onclick="changeSize('A','rows',-1)">−</button>
+        <div class="size-display" id="sizeARows">3</div>
+        <button class="size-btn" onclick="changeSize('A','rows',1)">+</button>
+        <label style="margin-left:8px">Cols</label>
+        <button class="size-btn" onclick="changeSize('A','cols',-1)">−</button>
+        <div class="size-display" id="sizeACols">3</div>
+        <button class="size-btn" onclick="changeSize('A','cols',1)">+</button>
+        <div class="matrix-action-btns">
+          <button class="action-btn fill" onclick="randomFill('A')">Random</button>
+          <button class="action-btn fill" onclick="identityFill('A')">Identity</button>
+          <button class="action-btn clear-btn" onclick="clearMatrix('A')">Clear</button>
+        </div>
+      </div>
+      <div class="matrix-grid-wrap"><div class="matrix-grid" id="gridA"></div></div>
+    </div>
+
+    <!-- Matrix B -->
+    <div class="card" style="animation-delay:.1s">
+      <div class="card-title"><span class="dot" style="background:var(--cyan)"></span> Matrix B</div>
+      <div class="matrix-controls">
+        <label>Rows</label>
+        <button class="size-btn" onclick="changeSize('B','rows',-1)">−</button>
+        <div class="size-display" id="sizeBRows">3</div>
+        <button class="size-btn" onclick="changeSize('B','rows',1)">+</button>
+        <label style="margin-left:8px">Cols</label>
+        <button class="size-btn" onclick="changeSize('B','cols',-1)">−</button>
+        <div class="size-display" id="sizeBCols">3</div>
+        <button class="size-btn" onclick="changeSize('B','cols',1)">+</button>
+        <div class="matrix-action-btns">
+          <button class="action-btn fill" onclick="randomFill('B')">Random</button>
+          <button class="action-btn fill" onclick="identityFill('B')">Identity</button>
+          <button class="action-btn clear-btn" onclick="clearMatrix('B')">Clear</button>
+        </div>
+      </div>
+      <div class="matrix-grid-wrap"><div class="matrix-grid" id="gridB"></div></div>
+    </div>
+
+  </div>
+
+  <!-- Scalar & Power inputs -->
+  <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px;">
+    <div class="card" style="flex:0 0 auto;padding:16px 24px;">
+      <div class="scalar-row">
+        <label>Scalar k =</label>
+        <input class="scalar-input" type="number" id="scalarK" value="2" step="any" />
+        <span style="font-size:12px;color:var(--muted)">used for k·A and k·B</span>
+      </div>
+    </div>
+    <div class="card" style="flex:0 0 auto;padding:16px 24px;">
+      <div class="power-row">
+        <label>Power n =</label>
+        <input class="power-input" type="number" id="powerN" value="2" min="0" step="1" />
+        <span style="font-size:12px;color:var(--muted)">used for Aⁿ</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─ Operations ───────────────────────────────────────── -->
+  <div class="card ops-panel" style="animation-delay:.15s">
+    <div class="card-title"><span class="dot" style="background:var(--amber)"></span> Operations</div>
+
+    <div class="ops-categories">
+      <button class="cat-tab active" data-cat="all"    onclick="filterOps('all',this)">All</button>
+      <button class="cat-tab" data-cat="binary" onclick="filterOps('binary',this)">Binary (A,B)</button>
+      <button class="cat-tab" data-cat="unary"  onclick="filterOps('unary',this)">Unary</button>
+      <button class="cat-tab" data-cat="props"  onclick="filterOps('props',this)">Properties</button>
+      <button class="cat-tab" data-cat="decomp" onclick="filterOps('decomp',this)">Decompose</button>
+      <button class="cat-tab" data-cat="checks" onclick="filterOps('checks',this)">Check</button>
+    </div>
+
+    <div class="ops-grid" id="opsGrid">
+      <!-- Binary -->
+      <button class="op-btn" data-cat="binary" onclick="runOp('add')">
+        <span class="op-name">A + B</span><span class="op-desc">Matrix addition</span>
+        <span class="op-tag">BINARY</span>
+      </button>
+      <button class="op-btn" data-cat="binary" onclick="runOp('sub')">
+        <span class="op-name">A − B</span><span class="op-desc">Matrix subtraction</span>
+        <span class="op-tag">BINARY</span>
+      </button>
+      <button class="op-btn" data-cat="binary" onclick="runOp('mul')">
+        <span class="op-name">A × B</span><span class="op-desc">Matrix multiplication</span>
+        <span class="op-tag">BINARY</span>
+      </button>
+      <button class="op-btn" data-cat="binary" onclick="runOp('mulBA')">
+        <span class="op-name">B × A</span><span class="op-desc">Reverse multiply</span>
+        <span class="op-tag">BINARY</span>
+      </button>
+      <button class="op-btn" data-cat="binary" onclick="runOp('hadamard')">
+        <span class="op-name">A ⊙ B</span><span class="op-desc">Hadamard (element-wise)</span>
+        <span class="op-tag">BINARY</span>
+      </button>
+      <button class="op-btn" data-cat="binary" onclick="runOp('kronecker')">
+        <span class="op-name">A ⊗ B</span><span class="op-desc">Kronecker product</span>
+        <span class="op-tag">BINARY</span>
+      </button>
+      <!-- Unary A -->
+      <button class="op-btn" data-cat="unary" onclick="runOp('transposeA')">
+        <span class="op-name">Aᵀ</span><span class="op-desc">Transpose of A</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('transposeB')">
+        <span class="op-name">Bᵀ</span><span class="op-desc">Transpose of B</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('inverseA')">
+        <span class="op-name">A⁻¹</span><span class="op-desc">Inverse of A</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('inverseB')">
+        <span class="op-name">B⁻¹</span><span class="op-desc">Inverse of B</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('scalarA')">
+        <span class="op-name">k · A</span><span class="op-desc">Scalar multiplication</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('scalarB')">
+        <span class="op-name">k · B</span><span class="op-desc">Scalar multiplication</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('powerA')">
+        <span class="op-name">Aⁿ</span><span class="op-desc">Matrix power (A must be square)</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('rrefA')">
+        <span class="op-name">RREF(A)</span><span class="op-desc">Reduced row echelon form</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('rrefB')">
+        <span class="op-name">RREF(B)</span><span class="op-desc">Reduced row echelon form</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('adjA')">
+        <span class="op-name">adj(A)</span><span class="op-desc">Adjugate / Classical adjoint</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <button class="op-btn" data-cat="unary" onclick="runOp('negateA')">
+        <span class="op-name">−A</span><span class="op-desc">Negate all entries</span>
+        <span class="op-tag">UNARY</span>
+      </button>
+      <!-- Properties -->
+      <button class="op-btn" data-cat="props" onclick="runOp('detA')">
+        <span class="op-name">det(A)</span><span class="op-desc">Determinant of A</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('detB')">
+        <span class="op-name">det(B)</span><span class="op-desc">Determinant of B</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('traceA')">
+        <span class="op-name">tr(A)</span><span class="op-desc">Trace of A</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('traceB')">
+        <span class="op-name">tr(B)</span><span class="op-desc">Trace of B</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('rankA')">
+        <span class="op-name">rank(A)</span><span class="op-desc">Rank of A</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('rankB')">
+        <span class="op-name">rank(B)</span><span class="op-desc">Rank of B</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('nullityA')">
+        <span class="op-name">nullity(A)</span><span class="op-desc">Dimension of null space</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('frobA')">
+        <span class="op-name">‖A‖_F</span><span class="op-desc">Frobenius norm</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('infNormA')">
+        <span class="op-name">‖A‖_∞</span><span class="op-desc">Infinity norm (max row sum)</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('oneNormA')">
+        <span class="op-name">‖A‖_1</span><span class="op-desc">1-norm (max col sum)</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <button class="op-btn" data-cat="props" onclick="runOp('eigenA')">
+        <span class="op-name">λ(A)</span><span class="op-desc">Eigenvalues (2×2 / 3×3)</span>
+        <span class="op-tag">PROPS</span>
+      </button>
+      <!-- Decomposition -->
+      <button class="op-btn" data-cat="decomp" onclick="runOp('luA')">
+        <span class="op-name">LU(A)</span><span class="op-desc">LU decomposition</span>
+        <span class="op-tag">DECOMP</span>
+      </button>
+      <button class="op-btn" data-cat="decomp" onclick="runOp('luB')">
+        <span class="op-name">LU(B)</span><span class="op-desc">LU decomposition</span>
+        <span class="op-tag">DECOMP</span>
+      </button>
+      <button class="op-btn" data-cat="decomp" onclick="runOp('choleskyA')">
+        <span class="op-name">Cholesky(A)</span><span class="op-desc">A = LLᵀ (pos. definite)</span>
+        <span class="op-tag">DECOMP</span>
+      </button>
+      <!-- Checks -->
+      <button class="op-btn" data-cat="checks" onclick="runOp('checksA')">
+        <span class="op-name">Check A</span><span class="op-desc">All matrix properties</span>
+        <span class="op-tag">CHECK</span>
+      </button>
+      <button class="op-btn" data-cat="checks" onclick="runOp('checksB')">
+        <span class="op-name">Check B</span><span class="op-desc">All matrix properties</span>
+        <span class="op-tag">CHECK</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ─ Result Panel ─────────────────────────────────────── -->
+  <div class="card result-panel" id="resultPanel" style="animation-delay:.2s">
+    <div class="result-glow"></div>
+    <div id="resultContent">
+      <div class="result-placeholder">
+        <div class="ph-icon">⊞</div>
+        <p>Select an operation above to see the result</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">Copied to clipboard!</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────
+const state = {
+  A: { rows:3, cols:3 },
+  B: { rows:3, cols:3 }
+};
+
+// ─── Build Matrix Grid ───────────────────────────────────────────────
+function buildGrid(id) {
+  const s = state[id];
+  const grid = document.getElementById('grid'+id);
+  grid.style.gridTemplateColumns = `repeat(${s.cols}, 58px)`;
+  grid.innerHTML = '';
+  for(let r=0;r<s.rows;r++) for(let c=0;c<s.cols;c++) {
+    const inp = document.createElement('input');
+    inp.type='number'; inp.step='any';
+    inp.className='matrix-cell';
+    inp.dataset.r=r; inp.dataset.c=c;
+    inp.value='0';
+    inp.setAttribute('aria-label',`Matrix ${id} row ${r+1} col ${c+1}`);
+    inp.addEventListener('input', updateInfoRow);
+    inp.addEventListener('keydown', cellNav);
+    grid.appendChild(inp);
+  }
+  document.getElementById('size'+id+'Rows').textContent = s.rows;
+  document.getElementById('size'+id+'Cols').textContent = s.cols;
+  updateInfoRow();
+}
+
+function cellNav(e) {
+  const el = e.target;
+  const r = +el.dataset.r, c = +el.dataset.c;
+  const id = el.closest('[id^=grid]').id.slice(4);
+  const s = state[id];
+  const moves = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] };
+  if(moves[e.key]) {
+    const [dr,dc] = moves[e.key];
+    const nr=r+dr, nc=c+dc;
+    if(nr>=0&&nr<s.rows&&nc>=0&&nc<s.cols) {
+      e.preventDefault();
+      document.querySelector(`#grid${id} [data-r="${nr}"][data-c="${nc}"]`).focus();
+    }
+  }
+}
+
+function changeSize(id, dim, delta) {
+  const s = state[id];
+  const key = dim === 'rows' ? 'rows' : 'cols';
+  s[key] = Math.max(1, Math.min(8, s[key]+delta));
+  buildGrid(id);
+}
+
+function getMatrix(id) {
+  const s = state[id];
+  const M = [];
+  for(let r=0;r<s.rows;r++) {
+    M.push([]);
+    for(let c=0;c<s.cols;c++) {
+      const el = document.querySelector(`#grid${id} [data-r="${r}"][data-c="${c}"]`);
+      M[r].push(parseFloat(el?.value)||0);
+    }
+  }
+  return M;
+}
+
+function randomFill(id) {
+  document.querySelectorAll(`#grid${id} .matrix-cell`).forEach(el=>{
+    el.value = (Math.round((Math.random()*10-2)*10)/10);
+    el.classList.add('pop');
+    setTimeout(()=>el.classList.remove('pop'),300);
+  });
+  updateInfoRow();
+}
+
+function identityFill(id) {
+  const s = state[id];
+  document.querySelectorAll(`#grid${id} .matrix-cell`).forEach(el=>{
+    el.value = el.dataset.r === el.dataset.c ? 1 : 0;
+  });
+  updateInfoRow();
+}
+
+function clearMatrix(id) {
+  document.querySelectorAll(`#grid${id} .matrix-cell`).forEach(el=>{ el.value='0'; });
+  updateInfoRow();
+}
+
+// ─── Filter ops ──────────────────────────────────────────────────────
+function filterOps(cat, btn) {
+  document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.op-btn').forEach(b=>{
+    b.style.display = (cat==='all'||b.dataset.cat===cat) ? '' : 'none';
+  });
+}
+
+// ─── Math Helpers ────────────────────────────────────────────────────
+const fmt = n => {
+  if(Math.abs(n)<1e-10) return '0';
+  const r = Math.round(n*10000)/10000;
+  return r === Math.floor(r) ? String(r) : r.toFixed(4).replace(/\.?0+$/,'');
+};
+
+function clone(M) { return M.map(r=>[...r]); }
+function rows(M) { return M.length; }
+function cols(M) { return M[0].length; }
+function isSquare(M) { return rows(M)===cols(M); }
+
+function zeros(r,c) { return Array.from({length:r},()=>Array(c).fill(0)); }
+function identity(n) { const I=zeros(n,n); for(let i=0;i<n;i++) I[i][i]=1; return I; }
+
+function matAdd(A,B,sign=1) {
+  if(rows(A)!==rows(B)||cols(A)!==cols(B)) throw 'Dimension mismatch: A and B must have the same size.';
+  return A.map((r,i)=>r.map((v,j)=>v+sign*B[i][j]));
+}
+
+function matMul(A,B) {
+  if(cols(A)!==rows(B)) throw `Dimension mismatch: A is ${rows(A)}×${cols(A)}, B is ${rows(B)}×${cols(B)}. Cols of A must equal rows of B.`;
+  const R=zeros(rows(A),cols(B));
+  for(let i=0;i<rows(A);i++) for(let j=0;j<cols(B);j++) for(let k=0;k<cols(A);k++) R[i][j]+=A[i][k]*B[k][j];
+  return R;
+}
+
+function scalarMul(M,k) { return M.map(r=>r.map(v=>v*k)); }
+function transpose(M) { return M[0].map((_,j)=>M.map(r=>r[j])); }
+function negate(M) { return scalarMul(M,-1); }
+function hadamard(A,B) {
+  if(rows(A)!==rows(B)||cols(A)!==cols(B)) throw 'Dimension mismatch for Hadamard product.';
+  return A.map((r,i)=>r.map((v,j)=>v*B[i][j]));
+}
+function kronecker(A,B) {
+  const R=zeros(rows(A)*rows(B), cols(A)*cols(B));
+  for(let i=0;i<rows(A);i++) for(let j=0;j<cols(A);j++)
+    for(let k=0;k<rows(B);k++) for(let l=0;l<cols(B);l++)
+      R[i*rows(B)+k][j*cols(B)+l]=A[i][j]*B[k][l];
+  return R;
+}
+
+function det(M) {
+  const n=rows(M);
+  if(!isSquare(M)) throw 'Matrix must be square for determinant.';
+  if(n===1) return M[0][0];
+  if(n===2) return M[0][0]*M[1][1]-M[0][1]*M[1][0];
+  let d=0, sign=1;
+  for(let j=0;j<n;j++) { d+=sign*M[0][j]*det(minor(M,0,j)); sign*=-1; }
+  return d;
+}
+
+function minor(M,row,col) {
+  return M.filter((_,i)=>i!==row).map(r=>r.filter((_,j)=>j!==col));
+}
+
+function cofactor(M,r,c) { return ((r+c)%2===0?1:-1)*det(minor(M,r,c)); }
+
+function adjugate(M) {
+  if(!isSquare(M)) throw 'Matrix must be square.';
+  const n=rows(M);
+  const A=zeros(n,n);
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) A[j][i]=cofactor(M,i,j);
+  return A;
+}
+
+function inverse(M) {
+  if(!isSquare(M)) throw 'Matrix must be square for inverse.';
+  const d=det(M);
+  if(Math.abs(d)<1e-10) throw 'Matrix is singular (det = 0) — inverse does not exist.';
+  return scalarMul(adjugate(M), 1/d);
+}
+
+function trace(M) {
+  if(!isSquare(M)) throw 'Matrix must be square for trace.';
+  let t=0; for(let i=0;i<rows(M);i++) t+=M[i][i]; return t;
+}
+
+function frobeniusNorm(M) { let s=0; M.forEach(r=>r.forEach(v=>s+=v*v)); return Math.sqrt(s); }
+function infNorm(M) { return Math.max(...M.map(r=>r.reduce((s,v)=>s+Math.abs(v),0))); }
+function oneNorm(M) { return Math.max(...M[0].map((_,j)=>M.reduce((s,r)=>s+Math.abs(r[j]),0))); }
+
+function rref(M) {
+  const R=M.map(r=>[...r]);
+  const nr=rows(R), nc=cols(R);
+  let pr=0;
+  const steps=[];
+  for(let c=0;c<nc&&pr<nr;c++) {
+    let maxR=pr;
+    for(let r=pr+1;r<nr;r++) if(Math.abs(R[r][c])>Math.abs(R[maxR][c])) maxR=r;
+    if(Math.abs(R[maxR][c])<1e-10) continue;
+    [R[pr],R[maxR]]=[R[maxR],R[pr]];
+    if(pr!==maxR) steps.push(`R${pr+1} ↔ R${maxR+1}`);
+    const pv=R[pr][c];
+    for(let j=0;j<nc;j++) R[pr][j]/=pv;
+    if(Math.abs(pv-1)>1e-10) steps.push(`R${pr+1} ÷ ${fmt(pv)}`);
+    for(let r=0;r<nr;r++) {
+      if(r===pr||Math.abs(R[r][c])<1e-10) continue;
+      const f=R[r][c];
+      for(let j=0;j<nc;j++) R[r][j]-=f*R[pr][j];
+      steps.push(`R${r+1} - ${fmt(f)}·R${pr+1} → R${r+1}`);
+    }
+    pr++;
+  }
+  return {matrix:R, steps};
+}
+
+function rankOf(M) {
+  const {matrix:R}=rref(M);
+  return R.filter(r=>r.some(v=>Math.abs(v)>1e-10)).length;
+}
+
+function matPow(M,n) {
+  if(!isSquare(M)) throw 'Matrix must be square for power.';
+  if(n<0) return matPow(inverse(M),-n);
+  if(n===0) return identity(rows(M));
+  if(n===1) return clone(M);
+  if(n%2===0) { const h=matPow(M,n/2); return matMul(h,h); }
+  return matMul(M,matPow(M,n-1));
+}
+
+function luDecomp(M) {
+  if(!isSquare(M)) throw 'LU decomposition requires a square matrix.';
+  const n=rows(M);
+  const L=identity(n), U=clone(M);
+  const steps=[];
+  for(let k=0;k<n;k++) {
+    if(Math.abs(U[k][k])<1e-12) {
+      let swapped=false;
+      for(let r=k+1;r<n;r++) { if(Math.abs(U[r][k])>1e-12){[U[k],U[r]]=[U[r],U[k]];swapped=true;steps.push(`Pivot: swap rows ${k+1} and ${r+1}`);break;} }
+      if(!swapped) continue;
+    }
+    for(let i=k+1;i<n;i++) {
+      const m=U[i][k]/U[k][k];
+      L[i][k]=m;
+      for(let j=k;j<n;j++) U[i][j]-=m*U[k][j];
+      steps.push(`m(${i+1},${k+1}) = ${fmt(m)}`);
+    }
+  }
+  return {L,U,steps};
+}
+
+function choleskyDecomp(M) {
+  if(!isSquare(M)) throw 'Cholesky requires a square matrix.';
+  const n=rows(M);
+  const L=zeros(n,n);
+  for(let i=0;i<n;i++) {
+    for(let j=0;j<=i;j++) {
+      let s=M[i][j];
+      for(let k=0;k<j;k++) s-=L[i][k]*L[j][k];
+      if(i===j) {
+        if(s<=0) throw 'Matrix is not positive definite — Cholesky decomposition not possible.';
+        L[i][j]=Math.sqrt(s);
+      } else L[i][j]=s/L[j][j];
+    }
+  }
+  return L;
+}
+
+function eigenvalues2x2(M) {
+  if(rows(M)!==2||cols(M)!==2) return null;
+  const t=trace(M), d=det(M);
+  const disc=t*t-4*d;
+  if(disc>=0) {
+    const sq=Math.sqrt(disc);
+    return [{re:(t+sq)/2,im:0},{re:(t-sq)/2,im:0}];
+  } else {
+    const sq=Math.sqrt(-disc);
+    return [{re:t/2,im:sq/2},{re:t/2,im:-sq/2}];
+  }
+}
+
+function eigenvalues3x3(M) {
+  // Via characteristic polynomial: λ³ - tr·λ² + (sum 2x2 minors)·λ - det = 0
+  const t=trace(M), d=det(M);
+  const m = M[0][0]*M[1][1]+M[1][1]*M[2][2]+M[0][0]*M[2][2]
+           -M[0][1]*M[1][0]-M[1][2]*M[2][1]-M[0][2]*M[2][0];
+  // Solve cubic using Cardano's / numerical
+  return solveCubic(-1, t, -m, d);
+}
+
+function solveCubic(a,b,c,d) {
+  // a·x³ + b·x² + c·x + d = 0
+  // Convert to depressed cubic
+  const p = (3*a*c - b*b)/(3*a*a);
+  const q = (2*b*b*b - 9*a*b*c + 27*a*a*d)/(27*a*a*a);
+  const D = q*q/4 + p*p*p/27;
+  const shift = -b/(3*a);
+  if(D > 1e-9) {
+    const u=Math.cbrt(-q/2+Math.sqrt(D)), v=Math.cbrt(-q/2-Math.sqrt(D));
+    const x1=u+v+shift;
+    const re2=shift-(u+v)/2, im=Math.sqrt(3)*(u-v)/2;
+    return [{re:x1,im:0},{re:re2,im},{re:re2,im:-im}];
+  } else if(D < -1e-9) {
+    const r=Math.sqrt(-p*p*p/27);
+    const theta=Math.acos(-q/(2*r))/3;
+    const m=2*Math.cbrt(r);
+    return [0,1,2].map(k=>({re:m*Math.cos(theta+2*Math.PI*k/3)+shift, im:0}));
+  } else {
+    const u=Math.cbrt(-q/2);
+    return [{re:2*u+shift,im:0},{re:-u+shift,im:0},{re:-u+shift,im:0}];
+  }
+}
+
+function checksOf(M) {
+  const n=rows(M), nc=cols(M);
+  const sq=isSquare(M);
+  const checks = {
+    'Square':         sq,
+    'Symmetric':      sq && M.every((r,i)=>r.every((v,j)=>Math.abs(v-M[j][i])<1e-9)),
+    'Skew-Symmetric': sq && M.every((r,i)=>r.every((v,j)=>Math.abs(v+M[j][i])<1e-9)),
+    'Identity':       sq && M.every((r,i)=>r.every((v,j)=>Math.abs(v-(i===j?1:0))<1e-9)),
+    'Zero Matrix':    M.every(r=>r.every(v=>Math.abs(v)<1e-9)),
+    'Diagonal':       sq && M.every((r,i)=>r.every((v,j)=>i!==j?Math.abs(v)<1e-9:true)),
+    'Upper Triangular': sq && M.every((r,i)=>r.every((v,j)=>j<i?Math.abs(v)<1e-9:true)),
+    'Lower Triangular': sq && M.every((r,i)=>r.every((v,j)=>j>i?Math.abs(v)<1e-9:true)),
+    'Singular':       sq && Math.abs(det(M))<1e-9,
+    'Invertible':     sq && Math.abs(det(M))>1e-9,
+    'Orthogonal':     sq && (() => { try { const t=transpose(M); const P=matMul(M,t); return P.every((r,i)=>r.every((v,j)=>Math.abs(v-(i===j?1:0))<1e-6)); } catch(e){ return false; } })(),
+  };
+  return checks;
+}
+
+// ─── Render Results ──────────────────────────────────────────────────
+function renderMatrix(M, label, cat) {
+  const colors = {binary:'var(--primary)', unary:'var(--cyan)', props:'var(--green)', decomp:'var(--amber)', checks:'var(--pink)'};
+  const color = colors[cat]||'var(--primary)';
+  const panel = document.getElementById('resultPanel');
+  panel.className='card result-panel has-result';
+  const nc=cols(M);
+  let cells='';
+  const total=rows(M)*nc;
+  M.forEach((r,ri)=>r.forEach((v,ci)=>{
+    const delay = (ri*nc+ci)*20;
+    cells+=`<div class="result-cell" style="animation-delay:${delay}ms">${fmt(v)}</div>`;
+  }));
+  document.getElementById('resultContent').innerHTML=`
+    <div class="result-header">
+      <div class="result-op-label" style="color:${color}">
+        ${label}
+        <span class="badge" style="background:${color}22;color:${color}">${rows(M)}×${nc}</span>
+      </div>
+      <button class="copy-btn" onclick="copyMatrix(${JSON.stringify(M)})">Copy</button>
+    </div>
+    <div class="result-body">
+      <div style="overflow-x:auto;padding:8px 16px">
+        <div class="result-matrix" style="grid-template-columns:repeat(${nc},60px)">${cells}</div>
+      </div>
+    </div>`;
+}
+
+function renderScalar(val, label, cat) {
+  const colors = {binary:'var(--primary)', unary:'var(--cyan)', props:'var(--green)', decomp:'var(--amber)', checks:'var(--pink)'};
+  const color = colors[cat]||'var(--green)';
+  const panel = document.getElementById('resultPanel');
+  panel.className='card result-panel has-result';
+  document.getElementById('resultContent').innerHTML=`
+    <div class="result-header">
+      <div class="result-op-label" style="color:${color}">${label}</div>
+      <button class="copy-btn" onclick="copyText('${fmt(val)}')">Copy</button>
+    </div>
+    <div class="result-scalar" style="color:${color}">${fmt(val)}</div>`;
+}
+
+function renderText(lines, label, cat, stepsArr) {
+  const colors = {binary:'var(--primary)', unary:'var(--cyan)', props:'var(--green)', decomp:'var(--amber)', checks:'var(--pink)'};
+  const color = colors[cat]||'var(--primary)';
+  const panel = document.getElementById('resultPanel');
+  panel.className='card result-panel has-result';
+  let body='<div class="result-text">';
+  lines.forEach(l=>{ body+=`<div class="key">${l.key}</div><span class="val">${l.val}</span>`; });
+  body+='</div>';
+  let stepsHtml='';
+  if(stepsArr&&stepsArr.length) {
+    stepsHtml=`<button class="steps-toggle" onclick="toggleSteps(this)">▶ Show Steps (${stepsArr.length})</button>
+      <div class="steps-section">${stepsArr.map(s=>`<div class="step-line">→ <span>${s}</span></div>`).join('')}</div>`;
+  }
+  document.getElementById('resultContent').innerHTML=`
+    <div class="result-header"><div class="result-op-label" style="color:${color}">${label}</div></div>
+    <div class="result-body">${body}${stepsHtml}</div>`;
+}
+
+function renderDecomp(matrices, label) {
+  const panel = document.getElementById('resultPanel');
+  panel.className='card result-panel has-result';
+  let html=`<div class="result-header"><div class="result-op-label" style="color:var(--amber)">${label}</div></div>
+    <div class="result-body"><div class="decomp-matrices">`;
+  matrices.forEach(({name,M})=>{
+    const nc=cols(M);
+    let cells='';
+    M.forEach((r,ri)=>r.forEach((v,ci)=>{
+      cells+=`<div class="result-cell" style="animation-delay:${(ri*nc+ci)*15}ms">${fmt(v)}</div>`;
+    }));
+    html+=`<div class="decomp-block"><h4>${name}</h4>
+      <div class="result-matrix" style="grid-template-columns:repeat(${nc},60px)">${cells}</div></div>`;
+  });
+  html+='</div></div>';
+  document.getElementById('resultContent').innerHTML=html;
+}
+
+function renderChecks(checks, label) {
+  const panel = document.getElementById('resultPanel');
+  panel.className='card result-panel has-result';
+  let items='';
+  for(const [k,v] of Object.entries(checks)) {
+    items+=`<div class="check-item ${v?'pass':'fail'}">${v?'✓':'✗'} ${k}</div>`;
+  }
+  document.getElementById('resultContent').innerHTML=`
+    <div class="result-header"><div class="result-op-label" style="color:var(--pink)">${label}</div></div>
+    <div class="result-body"><div class="check-grid">${items}</div></div>`;
+}
+
+function renderMatrix2(M, label, cat, stepsArr) {
+  const colors = {binary:'var(--primary)', unary:'var(--cyan)', props:'var(--green)', decomp:'var(--amber)', checks:'var(--pink)'};
+  const color = colors[cat]||'var(--primary)';
+  const panel = document.getElementById('resultPanel');
+  panel.className='card result-panel has-result';
+  const nc=cols(M);
+  let cells='';
+  M.forEach((r,ri)=>r.forEach((v,ci)=>{
+    const delay=(ri*nc+ci)*20;
+    cells+=`<div class="result-cell" style="animation-delay:${delay}ms">${fmt(v)}</div>`;
+  }));
+  let stepsHtml='';
+  if(stepsArr&&stepsArr.length) {
+    stepsHtml=`<button class="steps-toggle" onclick="toggleSteps(this)">▶ Show Steps (${stepsArr.length})</button>
+      <div class="steps-section">${stepsArr.map(s=>`<div class="step-line">→ <span>${s}</span></div>`).join('')}</div>`;
+  }
+  document.getElementById('resultContent').innerHTML=`
+    <div class="result-header">
+      <div class="result-op-label" style="color:${color}">
+        ${label}
+        <span class="badge" style="background:${color}22;color:${color}">${rows(M)}×${nc}</span>
+      </div>
+      <button class="copy-btn" onclick="copyMatrix(${JSON.stringify(M)})">Copy</button>
+    </div>
+    <div class="result-body">
+      <div style="overflow-x:auto;padding:8px 16px">
+        <div class="result-matrix" style="grid-template-columns:repeat(${nc},60px)">${cells}</div>
+      </div>
+      ${stepsHtml}
+    </div>`;
+}
+
+function renderError(msg) {
+  const panel = document.getElementById('resultPanel');
+  panel.className='card result-panel error';
+  document.getElementById('resultContent').innerHTML=`
+    <div class="result-error"><span class="err-icon">⚠️</span>${msg}</div>`;
+}
+
+function toggleSteps(btn) {
+  const sec=btn.nextElementSibling;
+  sec.classList.toggle('open');
+  btn.textContent=sec.classList.contains('open')
+    ?`▼ Hide Steps`:`▶ Show Steps (${sec.children.length})`;
+}
+
+// ─── Run Operations ──────────────────────────────────────────────────
+function runOp(op) {
+  try {
+    const A=getMatrix('A'), B=getMatrix('B');
+    const k=parseFloat(document.getElementById('scalarK').value)||1;
+    const n=parseInt(document.getElementById('powerN').value)||2;
+
+    switch(op) {
+      case 'add':        renderMatrix(matAdd(A,B),    'A + B',    'binary'); break;
+      case 'sub':        renderMatrix(matAdd(A,B,-1), 'A − B',    'binary'); break;
+      case 'mul':        renderMatrix(matMul(A,B),    'A × B',    'binary'); break;
+      case 'mulBA':      renderMatrix(matMul(B,A),    'B × A',    'binary'); break;
+      case 'hadamard':   renderMatrix(hadamard(A,B),  'A ⊙ B',    'binary'); break;
+      case 'kronecker':  renderMatrix(kronecker(A,B), 'A ⊗ B',    'binary'); break;
+      case 'transposeA': renderMatrix(transpose(A),   'Aᵀ',       'unary');  break;
+      case 'transposeB': renderMatrix(transpose(B),   'Bᵀ',       'unary');  break;
+      case 'inverseA':   renderMatrix(inverse(A),     'A⁻¹',      'unary');  break;
+      case 'inverseB':   renderMatrix(inverse(B),     'B⁻¹',      'unary');  break;
+      case 'scalarA':    renderMatrix(scalarMul(A,k), `${k} · A`, 'unary');  break;
+      case 'scalarB':    renderMatrix(scalarMul(B,k), `${k} · B`, 'unary');  break;
+      case 'negateA':    renderMatrix(negate(A),      '−A',       'unary');  break;
+      case 'adjA':       renderMatrix(adjugate(A),    'adj(A)',    'unary');  break;
+      case 'powerA': {
+        renderMatrix2(matPow(A,n), `A^${n}`, 'unary');
+        break;
+      }
+      case 'rrefA': {
+        const {matrix,steps}=rref(A);
+        renderMatrix2(matrix,'RREF(A)','unary',steps); break;
+      }
+      case 'rrefB': {
+        const {matrix,steps}=rref(B);
+        renderMatrix2(matrix,'RREF(B)','unary',steps); break;
+      }
+      case 'detA':    renderScalar(det(A),   'det(A)', 'props'); break;
+      case 'detB':    renderScalar(det(B),   'det(B)', 'props'); break;
+      case 'traceA':  renderScalar(trace(A), 'tr(A)',  'props'); break;
+      case 'traceB':  renderScalar(trace(B), 'tr(B)',  'props'); break;
+      case 'rankA':   renderScalar(rankOf(A),'rank(A)','props'); break;
+      case 'rankB':   renderScalar(rankOf(B),'rank(B)','props'); break;
+      case 'nullityA':renderScalar(cols(A)-rankOf(A),'nullity(A)','props'); break;
+      case 'frobA':   renderScalar(frobeniusNorm(A),'‖A‖_F','props'); break;
+      case 'infNormA':renderScalar(infNorm(A),'‖A‖_∞','props'); break;
+      case 'oneNormA':renderScalar(oneNorm(A),'‖A‖_1','props'); break;
+      case 'eigenA': {
+        let evs;
+        if(rows(A)===2&&cols(A)===2) evs=eigenvalues2x2(A);
+        else if(rows(A)===3&&cols(A)===3) evs=eigenvalues3x3(A);
+        else throw 'Eigenvalues supported for 2×2 and 3×3 matrices only.';
+        const lines=evs.map((v,i)=>({
+          key:`λ${i+1}`,
+          val: v.im===0 ? fmt(v.re) : `${fmt(v.re)} ${v.im>0?'+':'-'} ${fmt(Math.abs(v.im))}i`
+        }));
+        renderText(lines,'Eigenvalues of A','props'); break;
+      }
+      case 'luA': {
+        const {L,U,steps}=luDecomp(A);
+        renderDecomp([{name:'L (Lower)',M:L},{name:'U (Upper)',M:U}],'LU Decomposition of A');
+        break;
+      }
+      case 'luB': {
+        const {L,U,steps}=luDecomp(B);
+        renderDecomp([{name:'L (Lower)',M:L},{name:'U (Upper)',M:U}],'LU Decomposition of B');
+        break;
+      }
+      case 'choleskyA': {
+        const L=choleskyDecomp(A);
+        renderDecomp([{name:'L',M:L},{name:'Lᵀ',M:transpose(L)}],'Cholesky: A = L·Lᵀ');
+        break;
+      }
+      case 'checksA': renderChecks(checksOf(A),'Properties of A'); break;
+      case 'checksB': renderChecks(checksOf(B),'Properties of B'); break;
+      default: renderError('Unknown operation.');
+    }
+  } catch(e) { renderError(typeof e==='string'?e:e.message); }
+}
+
+// ─── Info Row Update ─────────────────────────────────────────────────
+function updateInfoRow() {
+  const A=getMatrix('A');
+  const B=getMatrix('B');
+  document.getElementById('infoSizeA').textContent=`${rows(A)}×${cols(A)}`;
+  document.getElementById('infoSizeB').textContent=`${rows(B)}×${cols(B)}`;
+  try { document.getElementById('infoDetA').textContent = isSquare(A) ? fmt(det(A)) : 'N/A'; }
+  catch(e){ document.getElementById('infoDetA').textContent='—'; }
+  try { document.getElementById('infoTraceA').textContent = isSquare(A) ? fmt(trace(A)) : 'N/A'; }
+  catch(e){ document.getElementById('infoTraceA').textContent='—'; }
+  try { document.getElementById('infoRankA').textContent = fmt(rankOf(A)); }
+  catch(e){ document.getElementById('infoRankA').textContent='—'; }
+}
+
+// ─── Copy Helpers ────────────────────────────────────────────────────
+function copyMatrix(M) {
+  const s=M.map(r=>r.map(fmt).join('\t')).join('\n');
+  copyText(s);
+}
+function copyText(s) {
+  navigator.clipboard.writeText(s).then(()=>{
+    const t=document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2000);
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────
+buildGrid('A');
+buildGrid('B');
+</script>
+</body>
+</html>
